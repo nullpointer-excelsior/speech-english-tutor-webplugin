@@ -1,0 +1,21 @@
+{
+  "name": "speech-english-tutor-webplugin",
+  "version": "1.0.0",
+  "description": "",
+  "main": "background.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "vite": "^8.0.13",
+    "vite-plugin-web-extension": "^4.5.1"
+  },
+  "dependencies": {
+    "openai": "^6.38.0"
+  }
+}
