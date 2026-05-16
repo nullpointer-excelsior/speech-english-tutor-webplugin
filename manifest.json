@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Text to Speech Selector",
+  "version": "1.0",
+  "description": "Reads selected text aloud using the browser's native TTS engine.",
+  "permissions": [
+    "contextMenus",
+    "tts"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
