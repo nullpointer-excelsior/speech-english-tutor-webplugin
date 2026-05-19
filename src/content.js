@@ -28,9 +28,9 @@
 
     const header = document.createElement("div");
     header.style.cssText =
-      "display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;";
+      "display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;cursor:move;user-select:none;";
     header.innerHTML = `
-      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#a6adc8;">Translation</span>
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#a6adc8;pointer-events:none;">Translation</span>
       <button id="tts-popup-close" style="background:none;border:none;color:#a6adc8;cursor:pointer;font-size:16px;line-height:1;padding:0;">✕</button>
     `;
 
@@ -43,6 +43,30 @@
     document.body.appendChild(el);
 
     el.querySelector("#tts-popup-close").addEventListener("click", hidePopup);
+
+    // Make popup draggable
+    let isDragging = false;
+    let offsetX, offsetY;
+
+    header.addEventListener("mousedown", (e) => {
+      if (e.target.id === "tts-popup-close") return;
+      isDragging = true;
+      offsetX = e.clientX - el.getBoundingClientRect().left;
+      offsetY = e.clientY - el.getBoundingClientRect().top;
+      header.style.cursor = "grabbing";
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!isDragging) return;
+      el.style.left = `${e.clientX - offsetX}px`;
+      el.style.top = `${e.clientY - offsetY}px`;
+    });
+
+    document.addEventListener("mouseup", () => {
+      isDragging = false;
+      header.style.cursor = "move";
+    });
+
     return el;
   }
 
