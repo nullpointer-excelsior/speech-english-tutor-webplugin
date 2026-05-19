@@ -21,27 +21,50 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     chrome.tts.stop();
     chrome.tts.speak(info.selectionText, { rate: 1.0, enqueue: false });
 
-    await ensureContentScript(tab.id);
+    if (!tab?.id) {
+      return;
+    }
 
-    chrome.tabs.sendMessage(tab.id, {
-      type: "SHOW_TRANSLATION",
-      text: info.selectionText,
-    });
+    await sendTranslationPopup(tab.id, info.selectionText);
   }
 });
 
-// Inject content script if not already present in the tab
-async function ensureContentScript(tabId) {
+async function sendTranslationPopup(tabId, text) {
+  const delivered = await trySendMessage(tabId, {
+    type: "SHOW_TRANSLATION",
+    text,
+  });
+
+  if (delivered) {
+    return;
+  }
+
   try {
-    // Ping the content script — if it responds, it's already injected
-    await chrome.tabs.sendMessage(tabId, { type: "PING" });
-  } catch {
-    // No receiver → inject now
     await chrome.scripting.executeScript({
       target: { tabId },
       files: ["src/content.js"],
     });
+  } catch {
+    return;
   }
+
+  await trySendMessage(tabId, {
+    type: "SHOW_TRANSLATION",
+    text,
+  });
+}
+
+function trySendMessage(tabId, message) {
+  return new Promise((resolve) => {
+    chrome.tabs.sendMessage(tabId, message, () => {
+      if (chrome.runtime.lastError) {
+        console.warn("tabs.sendMessage failed:", chrome.runtime.lastError.message);
+        resolve(false);
+        return;
+      }
+      resolve(true);
+    });
+  });
 }
 
 // Handle translation request from content script

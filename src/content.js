@@ -1,5 +1,10 @@
 // Content script: injects translation popup into the page
 (function () {
+  if (globalThis.__ttsTranslationPopupLoaded) {
+    return;
+  }
+  globalThis.__ttsTranslationPopupLoaded = true;
+
   let popup = null;
 
   function createPopup() {
@@ -63,16 +68,13 @@
     }
   }
 
-  // Listen for message from background script
+  // Single listener routing all messages from the background script
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    // Respond to ping so background knows content script is alive
     if (message.type === "PING") {
       sendResponse({ alive: true });
-      return;
+      return true;
     }
-  });
 
-  chrome.runtime.onMessage.addListener((message) => {
     if (message.type === "SHOW_TRANSLATION") {
       const sel = window.getSelection();
       let x = window.innerWidth / 2;
@@ -80,8 +82,9 @@
 
       if (sel && sel.rangeCount > 0) {
         const rect = sel.getRangeAt(0).getBoundingClientRect();
-        x = rect.left + window.scrollX;
-        y = rect.bottom + window.scrollY;
+        // Use viewport coordinates directly — popup is position:fixed
+        x = rect.left;
+        y = rect.bottom;
       }
 
       showPopup(x, y);
@@ -101,6 +104,9 @@
           }
         }
       );
+
+      sendResponse({ received: true });
+      return true;
     }
   });
 
