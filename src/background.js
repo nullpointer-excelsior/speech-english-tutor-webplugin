@@ -41,8 +41,9 @@ async function sendTranslationPopup(tabId, text) {
 async function speakWithOpenAiTts(tabId, text) {
   try {
     const response = await client.audio.speech.create({
-      model: "tts-1",
-      voice: "shimmer",
+      model: "gpt-4o-mini-tts",
+      voice: "marin", //coral
+      instructions: "Speak in a cheerful, very sensual, friendly and positive tone.",
       input: text,
       response_format: "mp3",
     });
