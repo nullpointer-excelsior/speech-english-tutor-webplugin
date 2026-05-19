@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [
     webExtension({
       manifest: "manifest.json",
+      additionalInputs: ["src/offscreen.html"],
     }),
   ],
   build: {
