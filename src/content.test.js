@@ -38,6 +38,9 @@ describe("Content Script", () => {
       expect.objectContaining({ type: "TRANSLATE", text: "Hello" }),
       expect.any(Function)
     );
+
+    expect(popup.style.top).toBe("12px");
+    expect(popup.style.left).toBe("692px");
   });
 
   it("closes the popup when close button is clicked", () => {

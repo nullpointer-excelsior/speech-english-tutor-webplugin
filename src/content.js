@@ -11,24 +11,6 @@
   let currentTimeSeconds = 0;
   let durationSeconds = 0;
 
-  function isPopupVisible() {
-    return popup && popup.style.display !== "none";
-  }
-
-  function getSelectionAnchorPosition() {
-    const sel = window.getSelection();
-    let x = window.innerWidth / 2;
-    let y = 100;
-
-    if (sel && sel.rangeCount > 0) {
-      const rect = sel.getRangeAt(0).getBoundingClientRect();
-      x = rect.left;
-      y = rect.bottom;
-    }
-
-    return { x, y };
-  }
-
   function createPopup() {
     const el = document.createElement("div");
     el.id = "tts-translation-popup";
@@ -105,7 +87,7 @@
     return el;
   }
 
-  function showPopup(x, y, { reposition = true } = {}) {
+  function showPopupTopRight({ reposition = true } = {}) {
     if (!popup) popup = createPopup();
     popup.style.display = "block";
 
@@ -113,18 +95,10 @@
       return;
     }
 
-    // Position near cursor, keep inside viewport
     const padding = 12;
     const popupWidth = popup.offsetWidth || 320;
-    const popupHeight = popup.offsetHeight || 160;
-    const left = Math.max(
-      padding,
-      Math.min(x + padding, window.innerWidth - popupWidth - padding),
-    );
-    const top = Math.max(
-      padding,
-      Math.min(y + padding, window.innerHeight - popupHeight - padding),
-    );
+    const left = Math.max(padding, window.innerWidth - popupWidth - padding);
+    const top = padding;
 
     popup.style.left = `${left}px`;
     popup.style.top = `${top}px`;
@@ -249,8 +223,7 @@
     }
 
     if (message.type === "SHOW_LOADING") {
-      const { x, y } = getSelectionAnchorPosition();
-      showPopup(x, y);
+      showPopupTopRight();
       setPopupContent("Loading…");
       setSourceTextForPlayback("");
       sendResponse({ received: true });
@@ -258,12 +231,7 @@
     }
 
     if (message.type === "SHOW_TRANSLATION") {
-      if (isPopupVisible()) {
-        showPopup(0, 0, { reposition: false });
-      } else {
-        const { x, y } = getSelectionAnchorPosition();
-        showPopup(x, y);
-      }
+      showPopupTopRight();
       setPopupContent("Translating…");
       setSourceTextForPlayback(message.text);
       playSourceText();
