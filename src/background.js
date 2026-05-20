@@ -13,6 +13,12 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Speak selected text",
     contexts: ["selection"],
   });
+
+  chrome.contextMenus.create({
+    id: "translate-image",
+    title: "Translate & Speak Image",
+    contexts: ["image"],
+  });
 });
 
 // Context menu click: speak text and request translation popup
@@ -23,8 +29,40 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     }
 
     await sendTranslationPopup(tab.id, info.selectionText);
+  } else if (info.menuItemId === "translate-image") {
+    if (!tab?.id) {
+      return;
+    }
+
+    try {
+      const sourceText = await extractTextFromImage(info.srcUrl);
+      await sendTranslationPopup(tab.id, sourceText);
+    } catch (error) {
+      console.error("Image analysis failed:", error);
+      sendTranslationPopup(tab.id, "Could not analyze image. Please try another one.");
+    }
   }
 });
+
+async function extractTextFromImage(imageUrl) {
+  const response = await client.responses.create({
+    model: "gpt-4.1-mini",
+    input: [{
+      role: "user",
+      content: [
+        {
+          type: "input_text",
+          text: "Extract all visible text from this image in English. If there is no text, summarize the main idea in 1–2 sentences in English.",
+        },
+        {
+          type: "input_image",
+          image_url: imageUrl,
+        },
+      ],
+    }],
+  });
+  return response.output_text;
+}
 
 async function sendTranslationPopup(tabId, text) {
   const delivered = await trySendMessageWithContentScript(tabId, {
