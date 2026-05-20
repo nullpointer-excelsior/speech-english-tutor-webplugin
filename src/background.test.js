@@ -23,14 +23,14 @@ describe("Background Service Worker", () => {
     onInstalledListener();
 
     expect(chrome.contextMenus.create).toHaveBeenCalledWith(expect.objectContaining({
-      id: "readSelectedText"
+      id: "read-selected-text"
     }));
   });
 
   it("handles context menu clicks for text selection", async () => {
     expect(onClickedListener).toBeDefined();
     
-    const info = { menuItemId: "readSelectedText", selectionText: "Hello world" };
+    const info = { menuItemId: "read-selected-text", selectionText: "Hello world" };
     const tab = { id: 123 };
 
     await onClickedListener(info, tab);

@@ -9,7 +9,7 @@ const client = new OpenAI({
 // Create context menu on install
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
-    id: "readSelectedText",
+    id: "read-selected-text",
     title: "Speak selected text",
     contexts: ["selection"],
   });
@@ -23,7 +23,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Context menu click: speak text and request translation popup
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === "readSelectedText" && info.selectionText) {
+  if (info.menuItemId === "read-selected-text" && info.selectionText) {
     if (!tab?.id) {
       return;
     }
