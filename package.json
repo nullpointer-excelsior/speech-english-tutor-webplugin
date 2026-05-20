@@ -6,14 +6,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite build --watch",
-    "build": "vite build"
+    "build": "vite build",
+    "test": "vitest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "jsdom": "^29.1.1",
     "vite": "^8.0.13",
-    "vite-plugin-web-extension": "^4.5.1"
+    "vite-plugin-web-extension": "^4.5.1",
+    "vitest": "^4.1.7"
   },
   "dependencies": {
     "openai": "^6.38.0"
