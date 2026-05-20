@@ -40,7 +40,7 @@ describe("Content Script", () => {
     );
 
     expect(popup.style.top).toBe("12px");
-    expect(popup.style.left).toBe("692px");
+    expect(popup.style.right).toBe("12px");
   });
 
   it("closes the popup when close button is clicked", () => {

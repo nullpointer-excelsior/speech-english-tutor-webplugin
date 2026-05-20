@@ -75,6 +75,7 @@
 
     document.addEventListener("mousemove", (e) => {
       if (!isDragging) return;
+      el.style.right = "auto";
       el.style.left = `${e.clientX - offsetX}px`;
       el.style.top = `${e.clientY - offsetY}px`;
     });
@@ -96,11 +97,10 @@
     }
 
     const padding = 12;
-    const popupWidth = popup.offsetWidth || 320;
-    const left = Math.max(padding, window.innerWidth - popupWidth - padding);
     const top = padding;
 
-    popup.style.left = `${left}px`;
+    popup.style.left = "auto";
+    popup.style.right = `${padding}px`;
     popup.style.top = `${top}px`;
   }
 
