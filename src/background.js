@@ -34,6 +34,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       return;
     }
 
+    await trySendMessageWithContentScript(tab.id, { type: "SHOW_LOADING" });
+
     try {
       const sourceText = await extractTextFromImage(info.srcUrl);
       await sendTranslationPopup(tab.id, sourceText);

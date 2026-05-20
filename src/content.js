@@ -11,6 +11,24 @@
   let currentTimeSeconds = 0;
   let durationSeconds = 0;
 
+  function isPopupVisible() {
+    return popup && popup.style.display !== "none";
+  }
+
+  function getSelectionAnchorPosition() {
+    const sel = window.getSelection();
+    let x = window.innerWidth / 2;
+    let y = 100;
+
+    if (sel && sel.rangeCount > 0) {
+      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      x = rect.left;
+      y = rect.bottom;
+    }
+
+    return { x, y };
+  }
+
   function createPopup() {
     const el = document.createElement("div");
     el.id = "tts-translation-popup";
@@ -87,16 +105,29 @@
     return el;
   }
 
-  function showPopup(x, y) {
+  function showPopup(x, y, { reposition = true } = {}) {
     if (!popup) popup = createPopup();
     popup.style.display = "block";
 
+    if (!reposition) {
+      return;
+    }
+
     // Position near cursor, keep inside viewport
     const padding = 12;
-    const pw = 320;
-    const left = Math.min(x + padding, window.innerWidth - pw - padding);
+    const popupWidth = popup.offsetWidth || 320;
+    const popupHeight = popup.offsetHeight || 160;
+    const left = Math.max(
+      padding,
+      Math.min(x + padding, window.innerWidth - popupWidth - padding),
+    );
+    const top = Math.max(
+      padding,
+      Math.min(y + padding, window.innerHeight - popupHeight - padding),
+    );
+
     popup.style.left = `${left}px`;
-    popup.style.top = `${y + padding}px`;
+    popup.style.top = `${top}px`;
   }
 
   function hidePopup() {
@@ -217,19 +248,22 @@
       return true;
     }
 
-    if (message.type === "SHOW_TRANSLATION") {
-      const sel = window.getSelection();
-      let x = window.innerWidth / 2;
-      let y = 100;
-
-      if (sel && sel.rangeCount > 0) {
-        const rect = sel.getRangeAt(0).getBoundingClientRect();
-        // Use viewport coordinates directly — popup is position:fixed
-        x = rect.left;
-        y = rect.bottom;
-      }
-
+    if (message.type === "SHOW_LOADING") {
+      const { x, y } = getSelectionAnchorPosition();
       showPopup(x, y);
+      setPopupContent("Loading…");
+      setSourceTextForPlayback("");
+      sendResponse({ received: true });
+      return true;
+    }
+
+    if (message.type === "SHOW_TRANSLATION") {
+      if (isPopupVisible()) {
+        showPopup(0, 0, { reposition: false });
+      } else {
+        const { x, y } = getSelectionAnchorPosition();
+        showPopup(x, y);
+      }
       setPopupContent("Translating…");
       setSourceTextForPlayback(message.text);
       playSourceText();
