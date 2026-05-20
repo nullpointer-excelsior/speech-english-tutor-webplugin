@@ -43,6 +43,22 @@ describe("Content Script", () => {
     expect(popup.style.right).toBe("12px");
   });
 
+  it("keeps top-right margin after long translation content", async () => {
+    const onMessageListener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+
+    onMessageListener({ type: "SHOW_TRANSLATION", text: "Hello" }, {}, vi.fn());
+
+    const translateCall = chrome.runtime.sendMessage.mock.calls.find(
+      ([payload]) => payload?.type === "TRANSLATE"
+    );
+    const callback = translateCall[1];
+    callback({ translation: "A".repeat(2000) });
+
+    const popup = document.getElementById("tts-translation-popup");
+    expect(popup.style.right).toBe("12px");
+    expect(popup.style.top).toBe("12px");
+  });
+
   it("closes the popup when close button is clicked", () => {
     const onMessageListener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
     onMessageListener({ type: "SHOW_TRANSLATION", text: "Hello" }, {}, vi.fn());

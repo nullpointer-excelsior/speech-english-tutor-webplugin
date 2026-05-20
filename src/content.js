@@ -10,6 +10,7 @@
   let isPlaying = false;
   let currentTimeSeconds = 0;
   let durationSeconds = 0;
+  const POPUP_PADDING = 12;
 
   function createPopup() {
     const el = document.createElement("div");
@@ -23,10 +24,14 @@
       border: 1px solid #6c7086;
       border-radius: 10px;
       padding: 14px 16px;
+      box-sizing: border-box;
+      max-height: calc(100vh - 24px);
       font-family: system-ui, sans-serif;
       font-size: 14px;
       line-height: 1.5;
       box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      overflow-y: auto;
+      overflow-x: hidden;
       display: none;
     `;
 
@@ -40,6 +45,7 @@
 
     const body = document.createElement("div");
     body.id = "tts-translation-body";
+    body.style.cssText = "overflow-wrap:anywhere;word-break:break-word;";
     body.textContent = "Loading…";
 
     const controls = document.createElement("div");
@@ -75,9 +81,20 @@
 
     document.addEventListener("mousemove", (e) => {
       if (!isDragging) return;
+
+      const rect = el.getBoundingClientRect();
+      const popupWidth = rect.width || el.offsetWidth || 320;
+      const popupHeight = rect.height || el.offsetHeight || 160;
+      const minLeft = POPUP_PADDING;
+      const maxLeft = Math.max(POPUP_PADDING, window.innerWidth - popupWidth - POPUP_PADDING);
+      const minTop = POPUP_PADDING;
+      const maxTop = Math.max(POPUP_PADDING, window.innerHeight - popupHeight - POPUP_PADDING);
+      const nextLeft = e.clientX - offsetX;
+      const nextTop = e.clientY - offsetY;
+
       el.style.right = "auto";
-      el.style.left = `${e.clientX - offsetX}px`;
-      el.style.top = `${e.clientY - offsetY}px`;
+      el.style.left = `${Math.min(maxLeft, Math.max(minLeft, nextLeft))}px`;
+      el.style.top = `${Math.min(maxTop, Math.max(minTop, nextTop))}px`;
     });
 
     document.addEventListener("mouseup", () => {
@@ -96,11 +113,10 @@
       return;
     }
 
-    const padding = 12;
-    const top = padding;
+    const top = POPUP_PADDING;
 
     popup.style.left = "auto";
-    popup.style.right = `${padding}px`;
+    popup.style.right = `${POPUP_PADDING}px`;
     popup.style.top = `${top}px`;
   }
 
