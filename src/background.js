@@ -22,10 +22,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       return;
     }
 
-    await Promise.allSettled([
-      sendTranslationPopup(tab.id, info.selectionText),
-      speakWithOpenAiTts(tab.id, info.selectionText),
-    ]);
+    await sendTranslationPopup(tab.id, info.selectionText);
   }
 });
 
@@ -39,6 +36,10 @@ async function sendTranslationPopup(tabId, text) {
 }
 
 async function speakWithOpenAiTts(tabId, text) {
+  if (!text || !text.trim()) {
+    return;
+  }
+
   try {
     const response = await client.audio.speech.create({
       model: "gpt-4o-mini-tts",
@@ -57,6 +58,7 @@ async function speakWithOpenAiTts(tabId, text) {
       target: "offscreen",
       type: "PLAY_AUDIO",
       audioBase64,
+      tabId,
     });
   } catch (error) {
     console.error("OpenAI TTS error:", error);
@@ -129,7 +131,102 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .catch((err) => sendResponse({ error: err.message }));
     return true; // keep channel open for async response
   }
+
+  if (message.type === "TTS_SPEAK") {
+    speakWithOpenAiTts(_sender?.tab?.id, message.text);
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message.type === "TTS_STOP") {
+    stopOffscreenAudio();
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message.type === "TTS_PAUSE") {
+    sendOffscreenControlMessage("PAUSE_AUDIO");
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message.type === "TTS_RESUME") {
+    sendOffscreenControlMessage("RESUME_AUDIO");
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message.type === "TTS_SEEK") {
+    sendOffscreenControlMessage("SEEK_AUDIO", {
+      progress: message.progress,
+    });
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message.type === "OFFSCREEN_AUDIO_PROGRESS") {
+    if (Number.isInteger(message.tabId)) {
+      forwardToTab(message.tabId, {
+        type: "OFFSCREEN_AUDIO_PROGRESS",
+        currentTime: message.currentTime,
+        duration: message.duration,
+        paused: message.paused,
+      });
+    }
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message.type === "OFFSCREEN_AUDIO_ENDED") {
+    if (Number.isInteger(message.tabId)) {
+      forwardToTab(message.tabId, {
+        type: "OFFSCREEN_AUDIO_ENDED",
+        duration: message.duration,
+      });
+    }
+    sendResponse({ ok: true });
+    return true;
+  }
 });
+
+async function stopOffscreenAudio() {
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ["OFFSCREEN_DOCUMENT"],
+  });
+
+  if (existingContexts.length === 0) {
+    return;
+  }
+
+  chrome.runtime.sendMessage({
+    target: "offscreen",
+    type: "STOP_AUDIO",
+  });
+}
+
+async function sendOffscreenControlMessage(type, extra = {}) {
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ["OFFSCREEN_DOCUMENT"],
+  });
+
+  if (existingContexts.length === 0) {
+    return;
+  }
+
+  chrome.runtime.sendMessage({
+    target: "offscreen",
+    type,
+    ...extra,
+  });
+}
+
+function forwardToTab(tabId, message) {
+  chrome.tabs.sendMessage(tabId, message, () => {
+    if (chrome.runtime.lastError) {
+      console.warn("forwardToTab failed:", chrome.runtime.lastError.message);
+    }
+  });
+}
 
 async function translateText(text) {
   const response = await client.chat.completions.create({

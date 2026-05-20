@@ -6,6 +6,10 @@
   globalThis.__ttsTranslationPopupLoaded = true;
 
   let popup = null;
+  let sourceText = "";
+  let isPlaying = false;
+  let currentTimeSeconds = 0;
+  let durationSeconds = 0;
 
   function createPopup() {
     const el = document.createElement("div");
@@ -38,11 +42,24 @@
     body.id = "tts-translation-body";
     body.textContent = "Loading…";
 
+    const controls = document.createElement("div");
+    controls.id = "tts-popup-controls";
+    controls.style.cssText = "display:flex;align-items:center;gap:8px;margin-top:12px;";
+    controls.innerHTML = `
+      <button id="tts-popup-play" style="background:#313244;border:1px solid #45475a;border-radius:8px;color:#cdd6f4;padding:6px 10px;cursor:pointer;font-size:12px;">Pause</button>
+      <input id="tts-popup-progress" type="range" min="0" max="100" step="1" value="0" style="flex:1;accent-color:#89b4fa;cursor:pointer;" />
+      <span id="tts-popup-time" style="font-size:11px;color:#a6adc8;min-width:72px;text-align:right;">0:00 / 0:00</span>
+    `;
+
     el.appendChild(header);
     el.appendChild(body);
+    el.appendChild(controls);
     document.body.appendChild(el);
 
     el.querySelector("#tts-popup-close").addEventListener("click", hidePopup);
+    el.querySelector("#tts-popup-play").addEventListener("click", togglePlayback);
+    el.querySelector("#tts-popup-progress").addEventListener("input", handleProgressInput);
+    el.querySelector("#tts-popup-progress").addEventListener("change", handleProgressCommit);
 
     // Make popup draggable
     let isDragging = false;
@@ -83,13 +100,114 @@
   }
 
   function hidePopup() {
-    if (popup) popup.style.display = "none";
+    if (popup) {
+      popup.style.display = "none";
+      chrome.runtime.sendMessage({ type: "TTS_STOP" });
+      resetPlaybackUi();
+    }
   }
 
   function setPopupContent(text) {
     if (popup) {
       popup.querySelector("#tts-translation-body").textContent = text;
     }
+  }
+
+  function formatTime(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+    const totalSeconds = Math.floor(seconds);
+    const minutes = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${minutes}:${String(secs).padStart(2, "0")}`;
+  }
+
+  function setPlayingState(playing) {
+    isPlaying = Boolean(playing);
+    if (!popup) return;
+
+    const playButton = popup.querySelector("#tts-popup-play");
+    playButton.textContent = isPlaying ? "Pause" : "Play";
+  }
+
+  function updateProgressUi(currentTime, duration) {
+    currentTimeSeconds = Number.isFinite(currentTime) ? currentTime : 0;
+    durationSeconds = Number.isFinite(duration) ? duration : 0;
+
+    if (!popup) return;
+
+    const progress = popup.querySelector("#tts-popup-progress");
+    const time = popup.querySelector("#tts-popup-time");
+    const progressValue = durationSeconds > 0 ? Math.round((currentTimeSeconds / durationSeconds) * 100) : 0;
+    progress.value = String(Math.max(0, Math.min(100, progressValue)));
+    time.textContent = `${formatTime(currentTimeSeconds)} / ${formatTime(durationSeconds)}`;
+  }
+
+  function resetPlaybackUi() {
+    setPlayingState(false);
+    updateProgressUi(0, 0);
+  }
+
+  function setSourceTextForPlayback(text) {
+    sourceText = (text || "").trim();
+    resetPlaybackUi();
+
+    if (!popup) return;
+
+    const playButton = popup.querySelector("#tts-popup-play");
+    const progress = popup.querySelector("#tts-popup-progress");
+    const disabled = sourceText.length === 0;
+    playButton.disabled = disabled;
+    progress.disabled = disabled;
+  }
+
+  function playSourceText() {
+    if (!sourceText) return;
+
+    chrome.runtime.sendMessage({
+      type: "TTS_SPEAK",
+      text: sourceText,
+    });
+
+    setPlayingState(true);
+  }
+
+  function togglePlayback() {
+    if (!sourceText) return;
+
+    if (isPlaying) {
+      chrome.runtime.sendMessage({ type: "TTS_PAUSE" });
+      setPlayingState(false);
+      return;
+    }
+
+    const isFinished = durationSeconds > 0 && currentTimeSeconds >= durationSeconds;
+
+    if (isFinished || durationSeconds === 0) {
+      playSourceText();
+      return;
+    }
+
+    chrome.runtime.sendMessage({ type: "TTS_RESUME" });
+    setPlayingState(true);
+  }
+
+  function handleProgressInput(event) {
+    if (!popup) return;
+
+    const value = Number(event.target.value);
+    const previewTime = durationSeconds > 0 ? (value / 100) * durationSeconds : 0;
+    const time = popup.querySelector("#tts-popup-time");
+    time.textContent = `${formatTime(previewTime)} / ${formatTime(durationSeconds)}`;
+  }
+
+  function handleProgressCommit(event) {
+    const value = Number(event.target.value);
+    if (!Number.isFinite(value)) return;
+
+    chrome.runtime.sendMessage({
+      type: "TTS_SEEK",
+      progress: Math.max(0, Math.min(100, value)),
+    });
   }
 
   // Single listener routing all messages from the background script
@@ -113,6 +231,8 @@
 
       showPopup(x, y);
       setPopupContent("Translating…");
+      setSourceTextForPlayback(message.text);
+      playSourceText();
 
       chrome.runtime.sendMessage(
         { type: "TRANSLATE", text: message.text },
@@ -129,6 +249,20 @@
         }
       );
 
+      sendResponse({ received: true });
+      return true;
+    }
+
+    if (message.type === "OFFSCREEN_AUDIO_PROGRESS") {
+      updateProgressUi(message.currentTime, message.duration);
+      setPlayingState(!message.paused);
+      sendResponse({ received: true });
+      return true;
+    }
+
+    if (message.type === "OFFSCREEN_AUDIO_ENDED") {
+      setPlayingState(false);
+      updateProgressUi(message.duration, message.duration);
       sendResponse({ received: true });
       return true;
     }
