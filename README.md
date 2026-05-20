@@ -5,9 +5,10 @@ A Chrome extension that helps you learn English by reading selected text aloud u
 ## Features
 
 - **High-Quality TTS**: Uses OpenAI's `gpt-4o-mini-tts` model for natural-sounding voiceovers.
-- **Instant Translation**: Translates selected text into Spanish using OpenAI's `gpt-4o-mini` model.
+- **Instant Translation**: Translates selected text or image content into Spanish using OpenAI's latest models.
+- **Image Analysis (Vision)**: Extracts text or summarizes the main idea from images using OpenAI's vision capabilities (`gpt-4.1-mini`).
 - **Interactive Popup**: Displays translations in a clean, draggable, and modern-looking popup.
-- **Context Menu Integration**: Simple "Speak selected text" option available on right-click.
+- **Context Menu Integration**: Dedicated options for both text selection and image analysis available on right-click.
 
 ## Architecture
 
@@ -51,6 +52,11 @@ A Chrome extension that helps you learn English by reading selected text aloud u
       npm run build
       ```
 
+5.  **Run tests**:
+    ```bash
+    npm run test
+    ```
+
 ## Installation in Chrome
 
 1.  Open Chrome and navigate to `chrome://extensions/`.
@@ -60,15 +66,22 @@ A Chrome extension that helps you learn English by reading selected text aloud u
 
 ## Usage
 
+### For Selected Text
 1.  Navigate to any website.
 2.  Select the English text you want to hear and translate.
 3.  Right-click and select **"Speak selected text"**.
 4.  The extension will read the text aloud and show a translation popup near your selection.
 
+### For Images
+1.  Right-click any image (`<img>`) on a webpage.
+2.  Select **"Translate & Speak Image"**.
+3.  The extension will use AI vision to extract the text or main idea, read it aloud in English, and show the Spanish translation in the popup.
+
 ## Tech Stack
 
-- **OpenAI API**: For TTS (`gpt-4o-mini-tts`) and Translation (`gpt-4o-mini`).
+- **OpenAI API**: For TTS (`gpt-4o-mini-tts`), Translation (`gpt-4o-mini`), and Vision (`gpt-4.1-mini`).
 - **Vite**: Build tool.
+- **Vitest**: Testing framework.
 - **Manifest V3**: Latest Chrome Extension standard.
 - **JavaScript (ES Modules)**: Modern JS syntax.
 
