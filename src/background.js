@@ -1,5 +1,6 @@
 // Background service worker: handles TTS and translation requests
 import OpenAI from "openai";
+import { TTS_SETTINGS } from "./constants";
 
 const client = new OpenAI({
   apiKey: import.meta.env.VITE_OPENAI_API_KEY,
@@ -34,7 +35,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       return;
     }
 
-    await trySendMessageWithContentScript(tab.id, { type: "SHOW_LOADING" });
+    await trySendMessageWithContentScript(tab.id, { type: "UI_SHOW_LOADING" });
 
     try {
       const sourceText = await extractTextFromImage(info.srcUrl);
@@ -68,7 +69,7 @@ async function extractTextFromImage(imageUrl) {
 
 async function sendTranslationPopup(tabId, text) {
   const delivered = await trySendMessageWithContentScript(tabId, {
-    type: "SHOW_TRANSLATION",
+    type: "UI_SHOW_TRANSLATION",
     text,
   });
 
@@ -82,11 +83,11 @@ async function speakWithOpenAiTts(tabId, text) {
 
   try {
     const response = await client.audio.speech.create({
-      model: "gpt-4o-mini-tts",
-      voice: "marin", //coral
+      model: TTS_SETTINGS.DEFAULT_MODEL,
+      voice: TTS_SETTINGS.DEFAULT_VOICE, //coral
       instructions: "Speak in a cheerful, very sensual, friendly and positive tone.",
       input: text,
-      response_format: "mp3",
+      response_format: TTS_SETTINGS.DEFAULT_FORMAT,
     });
 
     const audioBuffer = await response.arrayBuffer();
@@ -96,9 +97,10 @@ async function speakWithOpenAiTts(tabId, text) {
     
     chrome.runtime.sendMessage({
       target: "offscreen",
-      type: "PLAY_AUDIO",
+      type: "AUDIO_PLAY",
       audioBase64,
       tabId,
+      format: TTS_SETTINGS.DEFAULT_FORMAT,
     });
   } catch (error) {
     console.error("OpenAI TTS error:", error);
@@ -185,29 +187,29 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === "TTS_PAUSE") {
-    sendOffscreenControlMessage("PAUSE_AUDIO");
+    sendOffscreenControlMessage("AUDIO_PAUSE");
     sendResponse({ ok: true });
     return true;
   }
 
   if (message.type === "TTS_RESUME") {
-    sendOffscreenControlMessage("RESUME_AUDIO");
+    sendOffscreenControlMessage("AUDIO_RESUME");
     sendResponse({ ok: true });
     return true;
   }
 
   if (message.type === "TTS_SEEK") {
-    sendOffscreenControlMessage("SEEK_AUDIO", {
+    sendOffscreenControlMessage("AUDIO_SEEK", {
       progress: message.progress,
     });
     sendResponse({ ok: true });
     return true;
   }
 
-  if (message.type === "OFFSCREEN_AUDIO_PROGRESS") {
+  if (message.type === "AUDIO_PROGRESS") {
     if (Number.isInteger(message.tabId)) {
       forwardToTab(message.tabId, {
-        type: "OFFSCREEN_AUDIO_PROGRESS",
+        type: "UI_AUDIO_PROGRESS",
         currentTime: message.currentTime,
         duration: message.duration,
         paused: message.paused,
@@ -217,10 +219,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-  if (message.type === "OFFSCREEN_AUDIO_ENDED") {
+  if (message.type === "AUDIO_ENDED") {
     if (Number.isInteger(message.tabId)) {
       forwardToTab(message.tabId, {
-        type: "OFFSCREEN_AUDIO_ENDED",
+        type: "UI_AUDIO_ENDED",
         duration: message.duration,
       });
     }
@@ -240,7 +242,7 @@ async function stopOffscreenAudio() {
 
   chrome.runtime.sendMessage({
     target: "offscreen",
-    type: "STOP_AUDIO",
+    type: "AUDIO_STOP",
   });
 }
 
@@ -282,6 +284,6 @@ async function translateText(text) {
     max_tokens: 256,
   });
   const r = response.choices[0].message.content.trim();
-  console.log("traslation:", r)
-  return r
+  console.log("translation:", r);
+  return r;
 }

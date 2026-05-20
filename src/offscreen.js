@@ -1,4 +1,6 @@
 // Offscreen document: handles audio playback
+import { AUDIO_MIME_TYPES } from "./constants";
+
 let currentAudio = null;
 let currentObjectUrl = null;
 let currentTabId = null;
@@ -7,29 +9,35 @@ let progressIntervalId = null;
 chrome.runtime.onMessage.addListener((message) => {
   if (message.target !== "offscreen") return;
 
-  if (message.type === "PLAY_AUDIO") {
-    playAudio(message.audioBase64, message.tabId);
+  if (message.type === "AUDIO_PLAY") {
+    playAudio(message.audioBase64, message.tabId, message.format);
   }
 
-  if (message.type === "STOP_AUDIO") {
+  if (message.type === "AUDIO_STOP") {
     stopAudio();
   }
 
-  if (message.type === "PAUSE_AUDIO") {
+  if (message.type === "AUDIO_PAUSE") {
     pauseAudio();
   }
 
-  if (message.type === "RESUME_AUDIO") {
+  if (message.type === "AUDIO_RESUME") {
     resumeAudio();
   }
 
-  if (message.type === "SEEK_AUDIO") {
+  if (message.type === "AUDIO_SEEK") {
     seekAudio(message.progress);
   }
 });
 
-async function playAudio(base64Audio, tabId) {
+async function playAudio(base64Audio, tabId, format) {
   stopAudio();
+
+  const mimeType = AUDIO_MIME_TYPES[format];
+  if (!mimeType) {
+    console.error("Unsupported audio format:", format);
+    return;
+  }
 
   try {
     const byteChars = atob(base64Audio);
@@ -39,7 +47,7 @@ async function playAudio(base64Audio, tabId) {
       byteArray[i] = byteChars.charCodeAt(i);
     }
 
-    const blob = new Blob([byteArray], { type: "audio/mpeg" });
+    const blob = new Blob([byteArray], { type: mimeType });
     const objectUrl = URL.createObjectURL(blob);
 
     currentAudio = new Audio(objectUrl);
@@ -116,7 +124,7 @@ function sendPlaybackProgress() {
   if (!Number.isInteger(currentTabId) || !currentAudio) return;
 
   chrome.runtime.sendMessage({
-    type: "OFFSCREEN_AUDIO_PROGRESS",
+    type: "AUDIO_PROGRESS",
     tabId: currentTabId,
     currentTime: Number.isFinite(currentAudio.currentTime) ? currentAudio.currentTime : 0,
     duration: Number.isFinite(currentAudio.duration) ? currentAudio.duration : 0,
@@ -128,7 +136,7 @@ function sendPlaybackEnded() {
   if (!Number.isInteger(currentTabId) || !currentAudio) return;
 
   chrome.runtime.sendMessage({
-    type: "OFFSCREEN_AUDIO_ENDED",
+    type: "AUDIO_ENDED",
     tabId: currentTabId,
     duration: Number.isFinite(currentAudio.duration) ? currentAudio.duration : 0,
   });

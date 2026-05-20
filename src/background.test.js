@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { TTS_SETTINGS } from "./constants";
 
 // Import background script. We use await import to ensure mocks are set up.
 // We need to do this in a way that allows us to access the registered listeners.
@@ -36,14 +37,35 @@ describe("Background Service Worker", () => {
     await onClickedListener(info, tab);
 
     expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(123, expect.objectContaining({
-      type: "SHOW_TRANSLATION",
+      type: "UI_SHOW_TRANSLATION",
       text: "Hello world"
     }), expect.any(Function));
+  });
+
+  it("sends AUDIO_PLAY with shared format on TTS_SPEAK", async () => {
+    expect(onMessageListener).toBeDefined();
+    const sendResponse = vi.fn();
+
+    const result = onMessageListener({ type: "TTS_SPEAK", text: "Hello" }, { tab: { id: 22 } }, sendResponse);
+
+    expect(result).toBe(true);
+
+    await vi.waitFor(() => {
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+        target: "offscreen",
+        type: "AUDIO_PLAY",
+        audioBase64: expect.any(String),
+        tabId: 22,
+        format: TTS_SETTINGS.DEFAULT_FORMAT,
+      }));
+    });
   });
 
   it("handles TRANSLATE message", async () => {
     expect(onMessageListener).toBeDefined();
     const sendResponse = vi.fn();
+    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const misspelledLabel = "tra" + "slation:";
     
     const message = { type: "TRANSLATE", text: "Hello" };
     const result = onMessageListener(message, {}, sendResponse);
@@ -55,6 +77,10 @@ describe("Background Service Worker", () => {
         translation: "Mocked translation"
       }));
     });
+
+    expect(consoleLogSpy).toHaveBeenCalledWith("translation:", "Mocked translation");
+    expect(consoleLogSpy).not.toHaveBeenCalledWith(misspelledLabel, expect.any(String));
+    consoleLogSpy.mockRestore();
   });
 
   it("handles TRANSLATE message error", async () => {
@@ -82,9 +108,59 @@ describe("Background Service Worker", () => {
     // Should call extractTextFromImage (mocked) and then send message
     await vi.waitFor(() => {
       expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(123, expect.objectContaining({
-        type: "SHOW_TRANSLATION",
+        type: "UI_SHOW_TRANSLATION",
         text: "Mocked image text"
       }), expect.any(Function));
     });
+
+    expect(chrome.tabs.sendMessage).toHaveBeenNthCalledWith(1, 123, expect.objectContaining({
+      type: "UI_SHOW_LOADING",
+    }), expect.any(Function));
+  });
+
+  it("forwards AUDIO_PROGRESS as UI_AUDIO_PROGRESS", () => {
+    expect(onMessageListener).toBeDefined();
+    const sendResponse = vi.fn();
+
+    const result = onMessageListener(
+      {
+        type: "AUDIO_PROGRESS",
+        tabId: 123,
+        currentTime: 5,
+        duration: 9,
+        paused: false,
+      },
+      {},
+      sendResponse,
+    );
+
+    expect(result).toBe(true);
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(123, {
+      type: "UI_AUDIO_PROGRESS",
+      currentTime: 5,
+      duration: 9,
+      paused: false,
+    }, expect.any(Function));
+  });
+
+  it("forwards AUDIO_ENDED as UI_AUDIO_ENDED", () => {
+    expect(onMessageListener).toBeDefined();
+    const sendResponse = vi.fn();
+
+    const result = onMessageListener(
+      {
+        type: "AUDIO_ENDED",
+        tabId: 123,
+        duration: 9,
+      },
+      {},
+      sendResponse,
+    );
+
+    expect(result).toBe(true);
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(123, {
+      type: "UI_AUDIO_ENDED",
+      duration: 9,
+    }, expect.any(Function));
   });
 });

@@ -7,7 +7,14 @@
 
   let popup = null;
   let sourceText = "";
-  let isPlaying = false;
+  const UI_STATES = {
+    IDLE: "IDLE",
+    LOADING: "LOADING",
+    READY: "READY",
+    PLAYING: "PLAYING",
+    PAUSED: "PAUSED",
+  };
+  let uiState = UI_STATES.IDLE;
   let currentTimeSeconds = 0;
   let durationSeconds = 0;
   const POPUP_PADDING = 12;
@@ -142,12 +149,30 @@
     return `${minutes}:${String(secs).padStart(2, "0")}`;
   }
 
-  function setPlayingState(playing) {
-    isPlaying = Boolean(playing);
+  function setState(nextState) {
+    uiState = nextState;
     if (!popup) return;
 
     const playButton = popup.querySelector("#tts-popup-play");
-    playButton.textContent = isPlaying ? "Pause" : "Play";
+    const progress = popup.querySelector("#tts-popup-progress");
+
+    if (uiState === UI_STATES.IDLE || uiState === UI_STATES.LOADING) {
+      playButton.disabled = true;
+      progress.disabled = true;
+      playButton.textContent = "Play";
+      return;
+    }
+
+    if (uiState === UI_STATES.READY) {
+      playButton.disabled = sourceText.length === 0;
+      progress.disabled = true;
+      playButton.textContent = "Play";
+      return;
+    }
+
+    playButton.disabled = false;
+    progress.disabled = false;
+    playButton.textContent = uiState === UI_STATES.PLAYING ? "Pause" : "Play";
   }
 
   function updateProgressUi(currentTime, duration) {
@@ -164,40 +189,43 @@
   }
 
   function resetPlaybackUi() {
-    setPlayingState(false);
     updateProgressUi(0, 0);
+    setState(UI_STATES.IDLE);
   }
 
   function setSourceTextForPlayback(text) {
     sourceText = (text || "").trim();
     resetPlaybackUi();
-
-    if (!popup) return;
-
-    const playButton = popup.querySelector("#tts-popup-play");
-    const progress = popup.querySelector("#tts-popup-progress");
-    const disabled = sourceText.length === 0;
-    playButton.disabled = disabled;
-    progress.disabled = disabled;
   }
 
   function playSourceText() {
     if (!sourceText) return;
+    if (uiState !== UI_STATES.READY) return;
 
     chrome.runtime.sendMessage({
       type: "TTS_SPEAK",
       text: sourceText,
     });
 
-    setPlayingState(true);
+    setState(UI_STATES.PLAYING);
   }
 
   function togglePlayback() {
+    if (uiState === UI_STATES.IDLE || uiState === UI_STATES.LOADING) {
+      return;
+    }
+
     if (!sourceText) return;
 
-    if (isPlaying) {
+    if (uiState === UI_STATES.PLAYING) {
       chrome.runtime.sendMessage({ type: "TTS_PAUSE" });
-      setPlayingState(false);
+      setState(UI_STATES.PAUSED);
+      return;
+    }
+
+    if (uiState === UI_STATES.PAUSED) {
+      chrome.runtime.sendMessage({ type: "TTS_RESUME" });
+      setState(UI_STATES.PLAYING);
       return;
     }
 
@@ -209,10 +237,14 @@
     }
 
     chrome.runtime.sendMessage({ type: "TTS_RESUME" });
-    setPlayingState(true);
+    setState(UI_STATES.PLAYING);
   }
 
   function handleProgressInput(event) {
+    if (uiState !== UI_STATES.PLAYING && uiState !== UI_STATES.PAUSED) {
+      return;
+    }
+
     if (!popup) return;
 
     const value = Number(event.target.value);
@@ -222,6 +254,10 @@
   }
 
   function handleProgressCommit(event) {
+    if (uiState !== UI_STATES.PLAYING && uiState !== UI_STATES.PAUSED) {
+      return;
+    }
+
     const value = Number(event.target.value);
     if (!Number.isFinite(value)) return;
 
@@ -238,18 +274,20 @@
       return true;
     }
 
-    if (message.type === "SHOW_LOADING") {
+    if (message.type === "UI_SHOW_LOADING") {
       showPopupTopRight();
       setPopupContent("Loading…");
       setSourceTextForPlayback("");
+      setState(UI_STATES.LOADING);
       sendResponse({ received: true });
       return true;
     }
 
-    if (message.type === "SHOW_TRANSLATION") {
+    if (message.type === "UI_SHOW_TRANSLATION") {
       showPopupTopRight();
       setPopupContent("Translating…");
       setSourceTextForPlayback(message.text);
+      setState(UI_STATES.READY);
       playSourceText();
 
       chrome.runtime.sendMessage(
@@ -271,16 +309,18 @@
       return true;
     }
 
-    if (message.type === "OFFSCREEN_AUDIO_PROGRESS") {
+    if (message.type === "UI_AUDIO_PROGRESS") {
       updateProgressUi(message.currentTime, message.duration);
-      setPlayingState(!message.paused);
+      if (uiState !== UI_STATES.LOADING && uiState !== UI_STATES.IDLE) {
+        setState(message.paused ? UI_STATES.PAUSED : UI_STATES.PLAYING);
+      }
       sendResponse({ received: true });
       return true;
     }
 
-    if (message.type === "OFFSCREEN_AUDIO_ENDED") {
-      setPlayingState(false);
+    if (message.type === "UI_AUDIO_ENDED") {
       updateProgressUi(message.duration, message.duration);
+      setState(UI_STATES.READY);
       sendResponse({ received: true });
       return true;
     }
