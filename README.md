@@ -85,6 +85,14 @@ A Chrome extension that helps you learn English by reading selected text aloud u
 - **Manifest V3**: Latest Chrome Extension standard.
 - **JavaScript (ES Modules)**: Modern JS syntax.
 
+## TODO
+
+All new feature must first implement the follwing:
+- move harcoded constants to `constants.js`
+- move openai calls to separte file `service.js` or similar
+- if new features are complex must first implement a proper folder structure. 
+
 ## License
 
-ISC
+MIT License
++ AI Training Restriction Addendum
