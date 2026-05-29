@@ -326,10 +326,4 @@
     }
   });
 
-  // Close popup on outside click
-  document.addEventListener("mousedown", (e) => {
-    if (popup && popup.style.display !== "none" && !popup.contains(e.target)) {
-      hidePopup();
-    }
-  });
 })();
