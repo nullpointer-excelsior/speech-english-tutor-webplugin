@@ -1,3 +1,5 @@
+import { UI_STATES, POPUP_PADDING, MESSAGES } from "../shared/constants";
+
 // Content script: injects translation popup into the page
 (function () {
   if (globalThis.__ttsTranslationPopupLoaded) {
@@ -7,17 +9,9 @@
 
   let popup = null;
   let sourceText = "";
-  const UI_STATES = {
-    IDLE: "IDLE",
-    LOADING: "LOADING",
-    READY: "READY",
-    PLAYING: "PLAYING",
-    PAUSED: "PAUSED",
-  };
   let uiState = UI_STATES.IDLE;
   let currentTimeSeconds = 0;
   let durationSeconds = 0;
-  const POPUP_PADDING = 12;
 
   function createPopup() {
     const el = document.createElement("div");
@@ -130,7 +124,7 @@
   function hidePopup() {
     if (popup) {
       popup.style.display = "none";
-      chrome.runtime.sendMessage({ type: "TTS_STOP" });
+      chrome.runtime.sendMessage({ type: MESSAGES.TTS_STOP });
       resetPlaybackUi();
     }
   }
@@ -203,7 +197,7 @@
     if (uiState !== UI_STATES.READY) return;
 
     chrome.runtime.sendMessage({
-      type: "TTS_SPEAK",
+      type: MESSAGES.TTS_SPEAK,
       text: sourceText,
     });
 
@@ -218,13 +212,13 @@
     if (!sourceText) return;
 
     if (uiState === UI_STATES.PLAYING) {
-      chrome.runtime.sendMessage({ type: "TTS_PAUSE" });
+      chrome.runtime.sendMessage({ type: MESSAGES.TTS_PAUSE });
       setState(UI_STATES.PAUSED);
       return;
     }
 
     if (uiState === UI_STATES.PAUSED) {
-      chrome.runtime.sendMessage({ type: "TTS_RESUME" });
+      chrome.runtime.sendMessage({ type: MESSAGES.TTS_RESUME });
       setState(UI_STATES.PLAYING);
       return;
     }
@@ -236,7 +230,7 @@
       return;
     }
 
-    chrome.runtime.sendMessage({ type: "TTS_RESUME" });
+    chrome.runtime.sendMessage({ type: MESSAGES.TTS_RESUME });
     setState(UI_STATES.PLAYING);
   }
 
@@ -262,7 +256,7 @@
     if (!Number.isFinite(value)) return;
 
     chrome.runtime.sendMessage({
-      type: "TTS_SEEK",
+      type: MESSAGES.TTS_SEEK,
       progress: Math.max(0, Math.min(100, value)),
     });
   }
@@ -274,7 +268,7 @@
       return true;
     }
 
-    if (message.type === "UI_SHOW_LOADING") {
+    if (message.type === MESSAGES.UI_SHOW_LOADING) {
       showPopupTopRight();
       setPopupContent("Loading…");
       setSourceTextForPlayback("");
@@ -283,7 +277,7 @@
       return true;
     }
 
-    if (message.type === "UI_SHOW_TRANSLATION") {
+    if (message.type === MESSAGES.UI_SHOW_TRANSLATION) {
       showPopupTopRight();
       setPopupContent("Translating…");
       setSourceTextForPlayback(message.text);
@@ -291,7 +285,7 @@
       playSourceText();
 
       chrome.runtime.sendMessage(
-        { type: "TRANSLATE", text: message.text },
+        { type: MESSAGES.TRANSLATE, text: message.text },
         (response) => {
           if (chrome.runtime.lastError) {
             setPopupContent("Error: " + chrome.runtime.lastError.message);
@@ -309,7 +303,7 @@
       return true;
     }
 
-    if (message.type === "UI_AUDIO_PROGRESS") {
+    if (message.type === MESSAGES.UI_AUDIO_PROGRESS) {
       updateProgressUi(message.currentTime, message.duration);
       if (uiState !== UI_STATES.LOADING && uiState !== UI_STATES.IDLE) {
         setState(message.paused ? UI_STATES.PAUSED : UI_STATES.PLAYING);
@@ -318,7 +312,7 @@
       return true;
     }
 
-    if (message.type === "UI_AUDIO_ENDED") {
+    if (message.type === MESSAGES.UI_AUDIO_ENDED) {
       updateProgressUi(message.duration, message.duration);
       setState(UI_STATES.READY);
       sendResponse({ received: true });

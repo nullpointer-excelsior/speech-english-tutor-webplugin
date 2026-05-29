@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { TTS_SETTINGS } from "./constants";
+import { TTS_SETTINGS } from "../shared/constants";
 
 // Import background script. We use await import to ensure mocks are set up.
 // We need to do this in a way that allows us to access the registered listeners.

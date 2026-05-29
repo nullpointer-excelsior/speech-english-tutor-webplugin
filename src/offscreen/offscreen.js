@@ -1,5 +1,5 @@
 // Offscreen document: handles audio playback
-import { AUDIO_MIME_TYPES } from "./constants";
+import { AUDIO_MIME_TYPES, MESSAGES } from "../shared/constants";
 
 let currentAudio = null;
 let currentObjectUrl = null;
@@ -9,23 +9,23 @@ let progressIntervalId = null;
 chrome.runtime.onMessage.addListener((message) => {
   if (message.target !== "offscreen") return;
 
-  if (message.type === "AUDIO_PLAY") {
+  if (message.type === MESSAGES.AUDIO_PLAY) {
     playAudio(message.audioBase64, message.tabId, message.format);
   }
 
-  if (message.type === "AUDIO_STOP") {
+  if (message.type === MESSAGES.AUDIO_STOP) {
     stopAudio();
   }
 
-  if (message.type === "AUDIO_PAUSE") {
+  if (message.type === MESSAGES.AUDIO_PAUSE) {
     pauseAudio();
   }
 
-  if (message.type === "AUDIO_RESUME") {
+  if (message.type === MESSAGES.AUDIO_RESUME) {
     resumeAudio();
   }
 
-  if (message.type === "AUDIO_SEEK") {
+  if (message.type === MESSAGES.AUDIO_SEEK) {
     seekAudio(message.progress);
   }
 });
@@ -124,7 +124,7 @@ function sendPlaybackProgress() {
   if (!Number.isInteger(currentTabId) || !currentAudio) return;
 
   chrome.runtime.sendMessage({
-    type: "AUDIO_PROGRESS",
+    type: MESSAGES.AUDIO_PROGRESS,
     tabId: currentTabId,
     currentTime: Number.isFinite(currentAudio.currentTime) ? currentAudio.currentTime : 0,
     duration: Number.isFinite(currentAudio.duration) ? currentAudio.duration : 0,
@@ -136,7 +136,7 @@ function sendPlaybackEnded() {
   if (!Number.isInteger(currentTabId) || !currentAudio) return;
 
   chrome.runtime.sendMessage({
-    type: "AUDIO_ENDED",
+    type: MESSAGES.AUDIO_ENDED,
     tabId: currentTabId,
     duration: Number.isFinite(currentAudio.duration) ? currentAudio.duration : 0,
   });
